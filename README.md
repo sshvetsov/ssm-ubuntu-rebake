@@ -2,7 +2,7 @@
 
 This Automation document demonstrates how to remove ephemeral block device mappings from source AMI by creating a new AMI in your AWS account.
 
-For detailed post see: http://blog.shvetsov.com/
+For detailed post see: http://blog.shvetsov.com/2017/04/rebuild-ami-using-ssm-automation.html
 
 For this example to work you will need to:
 
