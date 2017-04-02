@@ -1,0 +1,125 @@
+{
+  "schemaVersion": "0.3",
+  "description": "Rebake Linux AMI. By default this will remove blocke device mappings from source AMI.",
+  "assumeRole": "{{AutomationAssumeRole}}",
+  "parameters": {
+    "SourceAmiId": {
+      "type": "String",
+      "description": "(Required) The source Amazon Machine Image ID."
+    },
+    "AutomationAssumeRole": {
+      "type": "String",
+      "description": "(Required) Role under which to execute this automation."
+    },
+    "TargetAmiName": {
+      "type": "String",
+      "description": "(Optional) The name of the new AMI that will be created.",
+      "default": "hvm-ssd/ubuntu-trusty-14.04-x86_64-server-{{global:DATE_TIME}}"
+    },
+    "InstanceType": {
+      "type": "String",
+      "description": "(Optional) Type of instance to launch as the workspace host. Instance types vary by region. Default is t2.micro.",
+      "default": "t2.micro"
+    },
+    "SubnetId": {
+      "type": "String",
+      "description": "(Optional) The ID of subnet to launch the instance in."
+    }
+  },
+  "mainSteps": [
+    {
+      "name": "launchInstance",
+      "action": "aws:runInstances",
+      "maxAttempts": 3,
+      "timeoutSeconds": 1200,
+      "onFailure": "Abort",
+      "inputs": {
+        "ImageId": "{{SourceAmiId}}",
+        "InstanceType": "{{InstanceType}}",
+        "SubnetId": "{{SubnetId}}",
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sdb",
+            "NoDevice": ""
+          },
+          {
+            "DeviceName": "/dev/sdc",
+            "NoDevice": ""
+          },
+          {
+            "DeviceName": "/dev/sdd",
+            "NoDevice": ""
+          },
+          {
+            "DeviceName": "/dev/sde",
+            "NoDevice": ""
+          }
+        ],
+        "MinInstanceCount": 1,
+        "MaxInstanceCount": 1
+      }
+    },
+    {
+      "name": "stopInstance",
+      "action": "aws:changeInstanceState",
+      "maxAttempts": 3,
+      "timeoutSeconds": 1200,
+      "onFailure": "Abort",
+      "inputs": {
+        "InstanceIds": [
+          "{{launchInstance.InstanceIds}}"
+        ],
+        "DesiredState": "stopped"
+      }
+    },
+    {
+      "name": "createImage",
+      "action": "aws:createImage",
+      "maxAttempts": 3,
+      "onFailure": "Abort",
+      "inputs": {
+        "InstanceId": "{{launchInstance.InstanceIds}}",
+        "ImageName": "{{TargetAmiName}}",
+        "NoReboot": true,
+        "ImageDescription": "Ubuntu Trusty 14.04 x86_64 Server"
+      }
+    },
+    {
+      "name": "terminateInstance",
+      "action": "aws:changeInstanceState",
+      "maxAttempts": 3,
+      "onFailure": "Continue",
+      "inputs": {
+        "InstanceIds": [
+          "{{launchInstance.InstanceIds}}"
+        ],
+        "DesiredState": "terminated"
+      }
+    },
+    {
+      "name": "createTags",
+      "action": "aws:createTags",
+      "maxAttempts": 3,
+      "onFailure": "Continue",
+      "inputs": {
+        "ResourceType": "EC2",
+        "ResourceIds": [
+          "{{createImage.ImageId}}"
+        ],
+        "Tags": [
+          {
+            "Key": "SourceAMI",
+            "Value": "{{SourceAmiId}}"
+          },
+          {
+            "Key": "BuildRegion",
+            "Value": "{{global:REGION}}"
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": [
+    "createImage.ImageId"
+  ]
+}
